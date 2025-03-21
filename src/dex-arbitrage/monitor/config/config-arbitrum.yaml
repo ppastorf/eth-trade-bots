@@ -1,7 +1,9 @@
 rpc_url: https://arbitrum-mainnet.core.chainstack.com/8c5b804a71a219985230ebee411964ad
 network_name: Arbitrum
-token_decimals: 18
-monitor_period_ms: 500
+monitor_period_ms: 50
+api:
+  server_host: 0.0.0.0
+  server_port: 8080
 exchanges:
   uniswap-v3:
     pair_abi_file: uniswap-v3-pool.json
@@ -14,19 +16,22 @@ exchanges:
         address: "0xC6962004f452bE9203591991D15f6b388e09E8D0"
         token0_decimals: 6
         token1_decimals: 6
-      WBTC/ETH:
-        address: "0x2f5e87C9312fa29aed5c179E456625D79015299c"
-        token0_decimals: 8
-        token1_decimals: -18
-      USDT/MIM:
-        address: "0x27807dD7ADF218e1f4d885d54eD51C70eFb9dE50"
-        token0_decimals: 6
-        token1_decimals: -18
-      ETH/GMX:
-        address: "0x80A9ae39310abf666A87C743d6ebBD0E8C42158E"
-        token0_decimals: 0
-        token1_decimals: 0
       WBTC/USDT:
         address: "0x5969EFddE3cF5C0D9a88aE51E47d721096A97203"
+        token0_decimals: 2
+        token1_decimals: 0
+  sushiswap-v3:
+    pair_abi_file: uniswap-v3-pool.json
+    pairs:
+      # :
+      #   address: ""
+      #   token0_decimals: 6
+      #   token1_decimals: 6
+      ETH/USDC:
+        address: "0x8f46184f825449de62cb022952E6Ad6D15d357c9"
+        token0_decimals: 6
+        token1_decimals: 6
+      WBTC/USDC:
+        address: "0xeeeeee9eC4769A09a76A83C7bC42b185872860eE"
         token0_decimals: 2
         token1_decimals: 0

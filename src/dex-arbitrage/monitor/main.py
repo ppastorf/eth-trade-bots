@@ -5,8 +5,20 @@ import argparse
 import threading
 from web3 import Web3
 from typing import List, Any
+import uvicorn
+from fastapi import FastAPI
+from collections import defaultdict
+from fastapi.responses import JSONResponse
 
 TOKEN_DECIMALS = 18
+PRICES = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+
+
+def defaultdict_to_dict(d):
+    if isinstance(d, defaultdict):
+        d = {key: defaultdict_to_dict(value) for key, value in d.items()}
+    return d
+
 
 def connect_to_rpc_node(rpc_url: str):
     rpc_conn = Web3(Web3.HTTPProvider(rpc_url))
@@ -29,6 +41,7 @@ def get_abi_from_file(abi_filepath: str):
 
     return abi
 
+
 def monitor_price(network_name: str, rpc_conn, pair_abi: Any, monitor_period_ms: int, exchange_name, pair_name, pair_address: str, token0_decimals, token1_decimals: int):
     print(f"Monitoring pair {pair_name} at {pair_address}...")
 
@@ -37,9 +50,12 @@ def monitor_price(network_name: str, rpc_conn, pair_abi: Any, monitor_period_ms:
       price = get_price_uniswap_v3(pair_contract, token0_decimals, token1_decimals)
       if price:
           print(f"{network_name} - {exchange_name} - {pair_name}: {price:.18f}")
+          PRICES[network_name][exchange_name][pair_name] = price
+          PRICES['last_updated'] = int(time.time())
       else:
           print(f"{network_name} - {exchange_name} - {pair_name}: failed to fetch price.")
       time.sleep(monitor_period_ms / 1000)
+
 
 def get_price_uniswap_v3(pair_contract, token0_decimals, token1_decimals):
     try:
@@ -48,11 +64,11 @@ def get_price_uniswap_v3(pair_contract, token0_decimals, token1_decimals):
         sqrt_price = sqrt_price_x96 / (2 ** 96)
         price = (sqrt_price ** 2) * 10**(token0_decimals + token1_decimals)
         # price = (sqrt_price ** 2) 
-
         return price
     except Exception as e:
         print(f"Error fetching reserves: {e}")
         return None
+
 
 def parse_config_file(filepath: str):
     data = {}
@@ -65,6 +81,22 @@ def parse_config_file(filepath: str):
 
     return data
 
+
+api = FastAPI()
+@api.get("/prices")
+def get_prices():
+    response = JSONResponse(content=defaultdict_to_dict(PRICES))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+def run_api_srv(host, port: str):
+    print(f"Api server running at {host}:{port}")
+    uvicorn.run(api, host=host, port=port)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str)
@@ -75,6 +107,14 @@ def main():
     print(f"Connecting to {config['network_name']} RPC Node...")
     rpc_conn = connect_to_rpc_node(config['rpc_url'])
 
+    # API server thread
+    thread = threading.Thread(target=run_api_srv, args=(
+      config['api']['server_host'],
+      config['api']['server_port']
+    ))
+    thread.start()
+
+    # monitor threads
     monitor_threads = []
 
     for exchange_name, exchange_config in config['exchanges'].items():
