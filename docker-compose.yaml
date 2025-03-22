@@ -1,0 +1,28 @@
+services:
+  # price-db:
+  #   image: redis:7.4.2
+  #   container_name: redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - pricedb_data:/data
+  #   command: ["redis-server", "--appendonly", "yes"]
+  #   restart: always
+
+  price-monitor:
+    build:
+      context: ./src/price-monitor
+    container_name: price-monitor
+    restart: always
+    ports:
+      - "8080:8080"
+
+  dex-arbitrage:
+    build:
+      context: ./src/dex-arbitrage
+    container_name: dex-arbitrage
+    restart: always
+
+volumes:
+  pricedb_data:
+    driver: local

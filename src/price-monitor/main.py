@@ -1,17 +1,33 @@
 import time
 import yaml
 import json
+import redis
+import uvicorn
 import argparse
 import threading
 from web3 import Web3
 from typing import List, Any
-import uvicorn
 from fastapi import FastAPI
+from datetime import datetime
 from collections import defaultdict
 from fastapi.responses import JSONResponse
 
+
 TOKEN_DECIMALS = 18
 PRICES = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+
+
+def parse_config_file(filepath: str):
+    data = {}
+    try:
+      with open(filepath, "r") as file:
+        data = yaml.safe_load(file)
+    except Exception as e:
+      print(f"Error loading config file: {e}")
+      return None
+
+    return data
+
 
 
 def defaultdict_to_dict(d):
@@ -42,7 +58,12 @@ def get_abi_from_file(abi_filepath: str):
     return abi
 
 
-def monitor_price(network_name: str, rpc_conn, pair_abi: Any, monitor_period_ms: int, exchange_name, pair_name, pair_address: str, token0_decimals, token1_decimals: int):
+def monitor_price(network_name: str,
+                  rpc_conn, redis_client, pair_abi: Any,
+                  monitor_period_ms: int,
+                  exchange_name, pair_name, pair_address: str,
+                  token0_decimals, token1_decimals: int
+                  ):
     print(f"Monitoring pair {pair_name} at {pair_address}...")
 
     pair_contract = rpc_conn.eth.contract(address=pair_address, abi=pair_abi)
@@ -51,7 +72,13 @@ def monitor_price(network_name: str, rpc_conn, pair_abi: Any, monitor_period_ms:
       if price:
           print(f"{network_name} - {exchange_name} - {pair_name}: {price:.18f}")
           PRICES[network_name][exchange_name][pair_name] = price
-          PRICES['last_updated'] = int(time.time())
+          PRICES['last_updated'] = datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H:%M:%S.%f")
+          try:
+              db_key = f"prices:{network_name}:{exchange_name}:{pair_name}"
+              db_value = price
+              if redis_client != None: redis_client.set(db_key, db_value)
+          except Exception as e:
+              print(f"Failed to connect to set data do price db: {e}")
       else:
           print(f"{network_name} - {exchange_name} - {pair_name}: failed to fetch price.")
       time.sleep(monitor_period_ms / 1000)
@@ -70,18 +97,6 @@ def get_price_uniswap_v3(pair_contract, token0_decimals, token1_decimals):
         return None
 
 
-def parse_config_file(filepath: str):
-    data = {}
-    try:
-      with open(filepath, "r") as file:
-        data = yaml.safe_load(file)
-    except Exception as e:
-      print(f"Error loading config file: {e}")
-      return None
-
-    return data
-
-
 api = FastAPI()
 @api.get("/prices")
 def get_prices():
@@ -97,7 +112,18 @@ def run_api_srv(host, port: str):
     uvicorn.run(api, host=host, port=port)
 
 
-def main():
+def connect_to_redis(redis_host, redis_port: str):
+  print(f"Connecting to price database...")
+  try:
+    redis_client = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
+    print(f"Succesfully connected to price database at {redis_host}:{redis_port}")
+    return redis_client
+  except Exception as e:
+    print(f"Failed to connect to price database: {e}")
+    return None
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str)
     args = parser.parse_args()
@@ -106,6 +132,11 @@ def main():
 
     print(f"Connecting to {config['network_name']} RPC Node...")
     rpc_conn = connect_to_rpc_node(config['rpc_url'])
+
+    if config['price_db']['enable']:
+      redis_client = connect_to_redis(config['price_db']['redis_host'], config['price_db']['redis_port'])
+    else:
+      redis_client = None
 
     # API server thread
     thread = threading.Thread(target=run_api_srv, args=(
@@ -122,12 +153,15 @@ def main():
       for pair_name, pair_config in exchange_config['pairs'].items():
         monitor = threading.Thread(target=monitor_price, args=(
             config['network_name'],
-            rpc_conn, pair_abi,
+            rpc_conn,
+            redis_client,
+            pair_abi,
             config['monitor_period_ms'],
-            exchange_name, pair_name,
+            exchange_name,
+            pair_name,
             pair_config['address'],
             pair_config['token0_decimals'],
-            pair_config['token1_decimals']
+            pair_config['token1_decimals'],
         ))
         monitor_threads.append(monitor)
         monitor.start()
@@ -137,6 +171,3 @@ def main():
         t.join()
       except KeyboardInterrupt:
         exit(1)
-
-if __name__ == "__main__":
-    main()
