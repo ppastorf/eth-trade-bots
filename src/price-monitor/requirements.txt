@@ -1,7 +1,0 @@
-web3==7.9.0
-requests==2.32.3
-typing_extensions==4.12.2
-PyYAML==6.0.2
-fastapi==0.115.11
-uvicorn==0.34.0
-redis==5.2.1

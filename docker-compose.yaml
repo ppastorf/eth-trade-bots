@@ -9,21 +9,6 @@ services:
   #   command: ["redis-server", "--appendonly", "yes"]
   #   restart: always
 
-  price-monitor:
-    container_name: price-monitor
-    restart: always
-    build:
-      context: ./src/price-monitor
-    command:
-      - python
-      - main.py
-      - --config
-      - config/config-arbitrum.yaml
-    volumes:
-      - ./src/price-monitor/config:/app/config
-    ports:
-      - "8080:8080"
-
   dex-arbitrage:
     container_name: dex-arbitrage
     restart: always
@@ -36,7 +21,9 @@ services:
       - config/config-arbitrum.yaml
     volumes:
       - ./src/dex-arbitrage/config:/app/config
+    ports:
+      - "8080:8080"
 
-volumes:
-  pricedb_data:
-    driver: local
+# volumes:
+#   pricedb_data:
+#     driver: local
