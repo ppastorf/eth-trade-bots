@@ -1,0 +1,11 @@
+rpc_url: https://arbitrum-mainnet.core.chainstack.com/8c5b804a71a219985230ebee411964ad
+network_name: Arbitrum
+arbitrage:
+  strategy: "1on1"
+  gas_strategy: fast
+  tx_value: 1
+price_query:
+  type: "http"
+  period_ms: 2000
+  http_url: "http://localhost:8080" 
+  redis_url: "redis://localhost:6379"

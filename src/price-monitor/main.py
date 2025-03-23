@@ -29,7 +29,6 @@ def parse_config_file(filepath: str):
     return data
 
 
-
 def defaultdict_to_dict(d):
     if isinstance(d, defaultdict):
         d = {key: defaultdict_to_dict(value) for key, value in d.items()}
@@ -63,37 +62,68 @@ def monitor_price(network_name: str,
                   monitor_period_ms: int,
                   exchange_name, pair_name, pair_address: str,
                   token0_decimals, token1_decimals: int
-                  ):
+  ):
+    global PRICES
     print(f"Monitoring pair {pair_name} at {pair_address}...")
 
     pair_contract = rpc_conn.eth.contract(address=pair_address, abi=pair_abi)
     while True:
-      price = get_price_uniswap_v3(pair_contract, token0_decimals, token1_decimals)
-      if price:
-          print(f"{network_name} - {exchange_name} - {pair_name}: {price:.18f}")
-          PRICES[network_name][exchange_name][pair_name] = price
-          PRICES['last_updated'] = datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H:%M:%S.%f")
-          try:
-              db_key = f"prices:{network_name}:{exchange_name}:{pair_name}"
-              db_value = price
-              if redis_client != None: redis_client.set(db_key, db_value)
-          except Exception as e:
-              print(f"Failed to connect to set data do price db: {e}")
-      else:
+      match exchange_name:
+        case "uniswap-v2":
+          price = get_price_uniswap_v2(pair_contract, token0_decimals, token1_decimals)
+
+        case "uniswap-v3":
+          price = get_price_uniswap_v3(pair_contract, token0_decimals, token1_decimals)
+
+        # case "sushiswap-v3":
+
+        # case "curve":
+
+        case _:
+          raise Exception(f"Exchange '{exchange_name}' not supported.")
+
+      if price == None:
           print(f"{network_name} - {exchange_name} - {pair_name}: failed to fetch price.")
+          continue
+
+      print(f"{network_name} - {exchange_name} - {pair_name}: {price:.18f}")
+      PRICES[network_name][exchange_name][pair_name] = price
+      PRICES['last_updated'] = datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H:%M:%S.%f")
+      try:
+          db_key = f"prices:{network_name}:{exchange_name}:{pair_name}"
+          db_value = price
+          if redis_client != None:
+            redis_client.set(db_key, db_value)
+      except Exception as e:
+          print(f"Failed to set data do price db: {e}")
+
       time.sleep(monitor_period_ms / 1000)
 
+#############################
+##### DEX CALLS 
+#############################
 
 def get_price_uniswap_v3(pair_contract, token0_decimals, token1_decimals):
     try:
         slot0 = pair_contract.functions.slot0().call()
         sqrt_price_x96 = slot0[0]
         sqrt_price = sqrt_price_x96 / (2 ** 96)
-        price = (sqrt_price ** 2) * 10**(token0_decimals + token1_decimals)
+        price = (sqrt_price ** 2) * 10**(token0_decimals - token1_decimals)
         # price = (sqrt_price ** 2) 
         return price
     except Exception as e:
-        print(f"Error fetching reserves: {e}")
+        print(f"Error fetching uniswap-v3 price: {e}")
+        return None
+
+
+def get_price_uniswap_v2(pair_contract, token0_decimals, token1_decimals):
+    try:
+        reserves = pair_contract.functions.getReserves().call()
+        price = reserves[1] / reserves[0] 
+        price = price * 10**(token0_decimals - token1_decimals)
+        return price
+    except Exception as e:
+        print(f"Error fetching uniswap-v2 price: {e}")
         return None
 
 

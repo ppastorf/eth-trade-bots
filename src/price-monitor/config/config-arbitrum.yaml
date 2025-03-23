@@ -9,33 +9,31 @@ price_db:
   redis_host: price-db
   redis_port: 6379
 exchanges:
+  uniswap-v2:
+    pair_abi_file: uniswap-v2-pool.json
+    pairs:
+      ETH/USDC:
+        address: "0xF64Dfe17C8b87F012FCf50FbDA1D62bfA148366a"
+        token0_decimals: 18
+        token1_decimals: 6
   uniswap-v3:
     pair_abi_file: uniswap-v3-pool.json
     pairs:
-      # :
-      #   address: ""
-      #   token0_decimals: 6
-      #   token1_decimals: 6
       ETH/USDC:
         address: "0xC6962004f452bE9203591991D15f6b388e09E8D0"
-        token0_decimals: 6
+        token0_decimals: 18
         token1_decimals: 6
-      WBTC/USDT:
-        address: "0x5969EFddE3cF5C0D9a88aE51E47d721096A97203"
-        token0_decimals: 2
-        token1_decimals: 0
   # sushiswap-v3:
-  #   pair_abi_file: uniswap-v3-pool.json
+  #   pair_abi_file: 
   #   pairs:
-  #     # :
-  #     #   address: ""
-  #     #   token0_decimals: 6
-  #     #   token1_decimals: 6
   #     ETH/USDC:
   #       address: "0x8f46184f825449de62cb022952E6Ad6D15d357c9"
   #       token0_decimals: 6
   #       token1_decimals: 6
-  #     WBTC/USDC:
-  #       address: "0xeeeeee9eC4769A09a76A83C7bC42b185872860eE"
-  #       token0_decimals: 2
-  #       token1_decimals: 0
+  # curve:
+  #   pair_abi_file: 
+  #   pairs:
+  #     ETH/USDC:
+  #       address: ""
+  #       token0_decimals: 6
+  #       token1_decimals: 6

@@ -10,18 +10,32 @@ services:
   #   restart: always
 
   price-monitor:
-    build:
-      context: ./src/price-monitor
     container_name: price-monitor
     restart: always
+    build:
+      context: ./src/price-monitor
+    command:
+      - python
+      - main.py
+      - --config
+      - config/config-arbitrum.yaml
+    volumes:
+      - ./src/price-monitor/config:/app/config
     ports:
       - "8080:8080"
 
   dex-arbitrage:
-    build:
-      context: ./src/dex-arbitrage
     container_name: dex-arbitrage
     restart: always
+    build:
+      context: ./src/dex-arbitrage
+    command:
+      - python
+      - main.py
+      - --config
+      - config/config-arbitrum.yaml
+    volumes:
+      - ./src/dex-arbitrage/config:/app/config
 
 volumes:
   pricedb_data:
