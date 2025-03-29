@@ -1,8 +1,8 @@
 network_name: Arbitrum
-rpc_url: https://arbitrum-mainnet.core.chainstack.com/8c5b804a71a219985230ebee411964ad
+rpc_url: https://arbitrum-mainnet.core.chainstack.com/0b3fa48372e6465c5dc3c57de192f7ae
 etherscan_url: "https://api.arbiscan.io/api"
 etherscan_api_key: "WK42X35JU3KKSWGPTETVP88JY3TG9TZSJJ"
-monitor_period_ms: 50
+monitor_period_ms: 40
 api:
   server_host: 0.0.0.0
   server_port: 8080
@@ -11,30 +11,27 @@ arbitrage:
   gas_strategy: fast
 exchanges:
   uniswap-v2:
-    pair_abi_file: uniswap-v2-pool.json
+    router_address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    token_type: "uniswap-v2"
     pairs:
-      ETH/USDC:
-        address: "0xF64Dfe17C8b87F012FCf50FbDA1D62bfA148366a"
-        token0_decimals: 18
-        token1_decimals: 6
+      - address: "0xF64Dfe17C8b87F012FCf50FbDA1D62bfA148366a"
+        token0:
+          name: ETH
+          address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+          decimals: 18
+        token1:
+          name: USDC
+          address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+          decimals: 6
   uniswap-v3:
-    pair_abi_file: uniswap-v3-pool.json
+    token_type: "uniswap-v3"
     pairs:
-      ETH/USDC:
-        address: "0xC6962004f452bE9203591991D15f6b388e09E8D0"
-        token0_decimals: 18
-        token1_decimals: 6
-  # sushiswap-v3:
-  #   pair_abi_file: 
-  #   pairs:
-  #     ETH/USDC:
-  #       address: "0x8f46184f825449de62cb022952E6Ad6D15d357c9"
-  #       token0_decimals: 6
-  #       token1_decimals: 6
-  # curve:
-  #   pair_abi_file: 
-  #   pairs:
-  #     ETH/USDC:
-  #       address: ""
-  #       token0_decimals: 6
-  #       token1_decimals: 6
+      - address: "0xC6962004f452bE9203591991D15f6b388e09E8D0"
+        token0:
+          name: ETH
+          address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+          decimals: 18
+        token1:
+          name: USDC
+          address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+          decimals: 6
