@@ -4,6 +4,7 @@ import json
 import uvicorn
 import argparse
 import threading
+import hashlib
 from web3 import Web3
 from typing import List, Any
 from fastapi import FastAPI
@@ -12,6 +13,9 @@ from itertools import permutations
 from collections import defaultdict
 from fastapi.responses import JSONResponse
 
+
+GLOBAL_MIN_INVESTMENT = 0 
+GLOBAL_MAX_INVESTMENT = float('inf')
 
 #############################
 ##### UTILS
@@ -30,6 +34,12 @@ def parse_config_file(filepath: str):
       return None
 
     return data
+
+def generate_unique_id(*strings):
+    combined = ''.join(strings)
+    hash_object = hashlib.sha256(combined.encode())
+    unique_id = hash_object.hexdigest()
+    return unique_id
 
 def defaultdict_to_dict(d):
     if isinstance(d, defaultdict):
@@ -98,6 +108,47 @@ class UniswapTokenPair:
           self.router_contract = None
           self.pair_addr = None
 
+class ArbitrageOpportunity(object):
+  _id: int
+  _buy_dex: str
+  _buy_price: float
+  _sell_dex: str
+  _sell_price: float
+  _pair_name: str
+  _timestamp: str
+  _min_investment: float
+
+  def __init__(self, pair_name: str, buy_dex: str, buy_price: float, sell_dex: str, sell_price: float):
+    self.id = generate_unique_id(pair_name, buy_dex, sell_dex, str(buy_price), str(sell_price))
+    self._pair_name = pair_name
+    self._buy_dex = buy_dex
+    self._buy_price = buy_price
+    self._sell_dex = sell_dex
+    self._sell_price = sell_price
+    self._timestamp = str(time.time())
+    self.calc_min_investment()
+
+  def calc_min_investment(self):
+    Pa = self._buy_price
+    Pb = self._sell_price
+    Fa = dex_fees(self._buy_dex, self._pair_name)
+    Fb = dex_fees(self._sell_dex, self._pair_name)
+    I = ( Pa * (1 + Fa) ) / ( Pb * ((Pb/Pa) * (1 - Fb) - (1 + Fa)) )
+    I = abs(I)
+    self._min_investment = I
+    return I
+
+  def should_buy(self):
+    return (
+        self._sell_price - self._buy_price > 0
+      ) and (
+        GLOBAL_MIN_INVESTMENT <= self._min_investment <= GLOBAL_MAX_INVESTMENT
+      )
+  
+
+  def __str__(self):
+    return str(vars(self))
+
 
 # #############################
 # ##### GLOBALS
@@ -110,7 +161,7 @@ args = parser.parse_args()
 CONFIG = parse_config_file(args.config)
 PRICES = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
 PAIRS  = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
-OPPORTUNITIES  = []
+OPPORTUNITIES  = {}
 UNISWAP_V3_FEES = {
   # "abc": 0.0001,
   "ETH/USDC": 0.0005,
@@ -163,37 +214,25 @@ def dex_fees(dex_name, pair_name: str):
         raise Exception(f"Fee calculation for exchange '{dex_name}' not supported.")
 
 
-def calc_min_investment(opp: Any):
-  Pa = opp['priceBuy']
-  Pb = opp['priceSell']
-  Fa = dex_fees(opp['buy'], opp['pair'])
-  Fb = dex_fees(opp['sell'], opp['pair'])
-  I = ( Pa * (1 + Fa) ) / ( Pb * ((Pb/Pa) * (1 - Fb) - (1 + Fa)) )
-  # return abs(I)
-  return I
-
-
 def arbitrage_engine_1on1():
   global OPPORTUNITIES
   while True:
     try:
       for pair_name, prices in PAIRS[CONFIG['network_name']].items():
-        opportunities = []
         for dexA, dexB in permutations(prices.keys(), 2):
-          opp = dict({
-            'buy': dexA,
-            'sell': dexB,
-            'pair': pair_name,
-            'priceBuy': prices[dexA],
-            'priceSell': prices[dexB]
-          })
-          if opp['priceSell'] - opp['priceBuy'] > 0:
-            opp['minInvestment'] = calc_min_investment(opp)
-            opp['shouldPurchase'] = opp['minInvestment'] > 0
+          opp = ArbitrageOpportunity(
+              pair_name=pair_name,
+              buy_dex=dexA,
+              buy_price=prices[dexA],
+              sell_dex=dexB,
+              sell_price=prices[dexB],
+            )
+          if (
+            opp.should_buy() and
+            (OPPORTUNITIES.get(opp.id) == None)
+            ):
             print(f"New arbitrage opportunity: {opp}")
-            opportunities.append(opp)
-
-        OPPORTUNITIES = opportunities
+            OPPORTUNITIES[opp.id] = opp
 
       time.sleep(CONFIG['monitor_period_ms'] / 1000)
 
